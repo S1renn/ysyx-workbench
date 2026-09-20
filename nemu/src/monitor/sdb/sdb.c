@@ -21,8 +21,8 @@
 #include <memory/paddr.h>
 #include <device/mmio.h>
 #include <isa.h>
-#include "/home/zs/ysyx-workbench/nemu/src/monitor/sdb/watchpoint.h"
-#include "/home/zs/ysyx-workbench/nemu/src/monitor/sdb/expr.h"
+#include "watchpoint.h"
+#include "expr.h"
 
 static int is_batch_mode = false;
 

@@ -1,7 +1,7 @@
 // Verilated -*- C++ -*-
 // DESCRIPTION: Verilator output: Symbol table implementation internals
 
-#include "Vtop__Syms.h"
+#include "Vtop__pch.h"
 #include "Vtop.h"
 #include "Vtop___024root.h"
 

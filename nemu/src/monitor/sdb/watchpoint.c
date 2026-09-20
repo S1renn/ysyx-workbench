@@ -13,8 +13,8 @@
 * See the Mulan PSL v2 for more details.
 ***************************************************************************************/
 
-#include "/home/zs/ysyx-workbench/nemu/src/monitor/sdb/watchpoint.h"
-#include "/home/zs/ysyx-workbench/nemu/src/monitor/sdb/expr.h"
+#include "watchpoint.h"
+#include "expr.h"
 
 //uint32_t expr(char *e, bool *flag);
 

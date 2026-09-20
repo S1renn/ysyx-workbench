@@ -1,9 +1,7 @@
 // Verilated -*- C++ -*-
 // DESCRIPTION: Verilator output: Model implementation (design independent parts)
 
-#include "Vtop.h"
-#include "Vtop__Syms.h"
-#include "verilated_dpi.h"
+#include "Vtop__pch.h"
 
 //============================================================
 // Constructors
@@ -63,13 +61,9 @@ void Vtop::eval_step() {
         Vtop___024root___eval_initial(&(vlSymsp->TOP));
         Vtop___024root___eval_settle(&(vlSymsp->TOP));
     }
-    // MTask 0 start
-    VL_DEBUG_IF(VL_DBG_MSGF("MTask0 starting\n"););
-    Verilated::mtaskId(0);
     VL_DEBUG_IF(VL_DBG_MSGF("+ Eval\n"););
     Vtop___024root___eval(&(vlSymsp->TOP));
     // Evaluate cleanup
-    Verilated::endOfThreadMTask(vlSymsp->__Vm_evalMsgQp);
     Verilated::endOfEval(vlSymsp->__Vm_evalMsgQp);
 }
 
@@ -104,3 +98,14 @@ VL_ATTR_COLD void Vtop::final() {
 const char* Vtop::hierName() const { return vlSymsp->name(); }
 const char* Vtop::modelName() const { return "Vtop"; }
 unsigned Vtop::threads() const { return 1; }
+void Vtop::prepareClone() const { contextp()->prepareClone(); }
+void Vtop::atClone() const {
+    contextp()->threadPoolpOnClone();
+}
+
+//============================================================
+// Trace configuration
+
+VL_ATTR_COLD void Vtop::trace(VerilatedVcdC* tfp, int levels, int options) {
+    vl_fatal(__FILE__, __LINE__, __FILE__,"'Vtop::trace()' called on model that was Verilated without --trace option");
+}
