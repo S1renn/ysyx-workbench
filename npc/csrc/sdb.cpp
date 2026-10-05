@@ -19,7 +19,7 @@ extern "C" uint32_t paddr_read(uint32_t addr, int len);
 
 
 extern uint32_t *cpu_gpr;
-void single_step();
+bool single_step();
 void isa_reg_display();
 
 
@@ -48,9 +48,11 @@ extern void difftest_step(uint32_t npc_pc, void *npc_regs);
 
 void cpu_exec(uint64_t n) {
     for (uint64_t i = 0; i < n; i++) {
-        single_step();
+        const bool committed = single_step();
         #ifdef CONFIG_DIFFTEST
-        difftest_step(top_ptr->pc, NULL);
+        if (committed) {
+            difftest_step(top_ptr->pc, NULL);
+        }
         #endif
         
 // #ifdef CONFIG_ITRACE
@@ -230,7 +232,11 @@ static int cmd_help(char *args) {
 
 
 
-void sdb_mainloop() {
+void sdb_mainloop(bool batch) {
+  if(batch){
+    cmd_c(NULL);
+    return;
+  }
 
   for (char *str; (str = rl_gets()) != NULL; ) {
     char *str_end = str + strlen(str);

@@ -10,7 +10,9 @@ module GPR (
     input [31:0] wdata,
     input [4:0] raddr1,
     input [4:0] raddr2,
-
+    input [31:0] load_data,
+    input [2:0] func3,
+    input [6:0] opcode,
     input [31:0] mepc_wdata,
     input [31:0] mtvec_wdata,
     output reg [31:0] mstatus_rdata,
@@ -81,13 +83,7 @@ module GPR (
 
   always @(posedge clk) begin
     if (gpr_wen && (waddr != 5'b0)) begin
-      x[waddr] <= wdata;
-      //$display("[WB] Time:%t | Reg[%d] <- %h", $time, waddr, wdata);
+      x[waddr] <= (opcode == 7'b0000011) ? load_data : wdata;
     end
-
-    //   if (gpr_wen && waddr == 5'd15) begin
-    //     $display("[RF-Write] x15(a5) gets value: %x", wdata);
-    //  end
   end
-
 endmodule

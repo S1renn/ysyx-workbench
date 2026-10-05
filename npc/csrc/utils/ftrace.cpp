@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <cstddef>
-#include <../include/generated/autoconf.h>
+#include "../../include/generated/autoconf.h"
 
 typedef struct {
   char name[64];

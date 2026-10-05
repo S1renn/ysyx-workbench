@@ -7,25 +7,29 @@ module top (
     output wire [31:0] x15,
     output wire [31:0] rdata1,
     output wire [31:0] rdata2,
-    output wire [31:0] imm
+    output wire [31:0] imm,
+    output wire commit
 
 );
 
 
 
   // always @(posedge clk) begin
-  //     if (inst == 32'h00002503) begin // 这是 lw a0, 0(a0) 的指令码，你可以根据实际指令改
-  //         $display("[Time:%t] PC:%x | GPR_WEN:1 | WADDR:%d | WDATA_FROM_EXU:%x | REAL_MEM_DATA:%x", 
+  //     if (inst == 32'h00002503) begin // 这是 lw a0, 0(a0) 的指令码，你可以根据实际指令
+  //         $display("[Time:%t] PC:%x | GPR_WEN:1 | WADDR:%d | WDATA_FROM_EXU:%x | REAL_MEM_DATA:%x",
   //                  $time, pc, gpr_waddr, gpr_wdata, mem_rdata);
   //     end
   // end
 
 
-
+  wire gpr_write_en = gpr_wen && commit;
+  wire is_load = inst[6:0] == 7'b0000011;
+  wire mem_read_en = mem_ren && exec_phase;
+  wire mem_write_en = mem_wen && exec_phase;
   wire [31:0] dnpc;
   wire [31:0] mem_wdata;
-  wire [3:0] wmask;
-  wire [3:0] rmask;
+  wire [3:0] mem_wmask;
+  wire [3:0] mem_rmask;
   //wire [31:0] gpr_wdata;
   wire [31:0] mem_inst;
   wire [31:0] mem_rdata;
@@ -40,10 +44,10 @@ module top (
   wire [4:0] raddr2;
   //wire [31:0] rdata1;
   //wire [31:0] rdata2;
-  wire inst_valid;
 
   wire [6:0] opcode;
   wire [2:0] func3;
+  wire inst_valid;
 
 
   //always @(*) begin
@@ -54,41 +58,91 @@ module top (
   always @(posedge clk) begin
     if (rst) begin
       pc <= 32'h8000_0000;
-    end else begin
+    end else if (commit) begin
       pc <= dnpc;
     end
   end
 
   IFU inst_fetch (
-
-      .inst    (inst),
-      .mem_inst(mem_inst)
+      .clk       (clk),
+      .rst       (rst),
+      .pc        (pc),
+      .ifu_rdata (inst),
+      .inst_valid(inst_valid),
+      .commit    (commit),
+      .is_load   (is_load),
+      .is_store  (is_store),
+      .exec_phase(exec_phase),
+      .mem_rvalid(mem_rvalid),
+      .mem_wvalid(mem_wvalid)
 
   );
+  //wire commit;
+  wire exec_phase;
+  wire mem_rvalid;
+
+  LSU u_lsu (
+      .clk(clk),
+      .rst(rst),
+
+      .req_valid(),
+      .is_store(is_store),
+      .func3(func3),
+      .opcode(opcode),
+      .addr(addr),
+      .store_data(store_data),
+
+      .done(),
+      .load_data(load_data),
+
+      .mem_req_valid(),
+      .mem_wen(),
+      .mem_addr(mem_addr),
+      .mem_wdata(mem_wdata),
+      .mem_wmask(lsu_mem_wmask),
+      .mem_rmask(lsu_mem_rmask),
+
+      .mem_resp_valid(),
+      .mem_rdata(mem_rdata)
+
+
+
+  );
+  wire [31:0] load_data;
+  wire [31:0] mem_addr;
+  wire [3:0] lsu_mem_rmask;
+  wire [3:0] lsu_mem_wmask;
+  wire [31:0] store_data;
+  wire mem_wvalid;
 
   MEM ram (
       .clk(clk),
-
-      //inst_read
-      .inst_addr(pc),
-      .inst_data(mem_inst),
+      .rst(rst),
 
       //data_read
       .rdata(mem_rdata),
-      .raddr(mem_raddr),
-      .rmask(rmask),
+      .raddr(mem_addr),
+      .rmask(mem_rmask),
+      .lsu_rmask(lsu_mem_rmask),
+      .lsu_wmask(lsu_mem_wmask),
 
       //data_write
-      .waddr(mem_waddr),
+      .waddr(mem_addr),
       .wdata(mem_wdata),
-      .wmask(wmask),
+      .wmask(mem_wmask),
 
 
-      .wen(mem_wen),
-      .ren(mem_ren)
+      .wen(mem_write_en),
+      .ren(mem_read_en),
+      .rvalid(mem_rvalid),
+      .wvalid(mem_wvalid),
+
+      .func3 (func3),
+      .opcode(opcode)
   );
 
   IDU inst_decode (
+      .clk(clk),
       .gpr_wen(gpr_wen),
       .gpr_ren(gpr_ren),
       .mem_wen(mem_wen),
@@ -126,7 +180,7 @@ module top (
       .rst       (rst),
       .pc        (pc),
       .dnpc      (dnpc),
-      .inst_valid(inst_valid | rst),
+      .inst_valid(inst_valid),
       .inst      (inst),
       .imm       (imm),
       .rs1       (rdata1),
@@ -134,6 +188,8 @@ module top (
       .opcode    (opcode),
       .func3     (func3),
       .gpr_wdata (gpr_wdata),
+      .is_store  (is_store),
+      .store_data(store_data),
 
 
       .mstatus_rdata(mstatus_rdata),
@@ -155,17 +211,19 @@ module top (
 
       .gpr_raddr (gpr_raddr),
       .gpr_rdata (gpr_rdata),
-      .mem_wdata (mem_wdata),
       .mem_rdata (mem_rdata),
-      .mem_waddr (mem_waddr),
       .mem_raddr (mem_raddr),
-      .wmask     (wmask),
-      .rmask     (rmask),
+      .mem_waddr (mem_waddr),
+      .mem_rmask (mem_rmask),
+      .mem_wmask (mem_wmask),
+      .addr      (addr),
       .rd        (gpr_waddr),
       .mepc_wdata(mepc_wdata)
 
 
   );
+  wire [31:0] addr;
+  wire is_store;
 
   wire [31:0] mtvec_wdata;
   wire [31:0] mstatus_wdata;
@@ -176,7 +234,7 @@ module top (
   GPR gpr (
       .clk        (clk),
       .rst        (rst),
-      .gpr_wen    (gpr_wen),
+      .gpr_wen    (gpr_write_en),
       .wen_mstatus(wen_mstatus),
       .wen_mtvec  (wen_mtvec),
       .wen_mepc   (wen_mepc),
@@ -190,7 +248,9 @@ module top (
       .mcause_wdata(mcause_wdata),
       .mtvec_wdata(mtvec_wdata),
       .mepc_rdata(mepc_rdata),
-
+      .opcode(opcode),
+      .func3(func3),
+      .load_data(load_data),
       .wdata (gpr_wdata),
       .waddr (gpr_waddr),
       .rdata1(rdata1),

@@ -48,7 +48,7 @@ extern "C" uint32_t paddr_read(uint32_t addr, int len) {
     char rmask = (len == 4) ? 0xf : (len == 2 ? 0x3 : 0x1);
     
     // 调用上面已经写好的 pmem_read 逻辑
-    pmem_read(addr, &data, rmask);
+    pmem_read(addr, rmask);
     
     return (uint32_t)data;
 }
@@ -57,7 +57,7 @@ extern "C" uint32_t paddr_read(uint32_t addr, int len) {
 extern bool gpu_read(uint32_t addr, uint32_t *data);
 extern bool gpu_write(uint32_t addr, uint32_t data, uint8_t wmask);
 extern "C" uint32_t keyboard_read();
-extern "C" void pmem_read(int raddr, int *rdata, char rmask) {
+extern "C" int pmem_read(int raddr, char rmask) {
     // --- 1. 设备区拦截 (0xa0000000 - 0xafffffff) ---
     if (raddr >= 0xa0000000 && raddr <= 0xafffffff) {
         #ifdef CONFIG_DIFFTEST
@@ -67,23 +67,20 @@ extern "C" void pmem_read(int raddr, int *rdata, char rmask) {
         // 先交给 GPU 处理 (内部会处理 VGACTL 和 整个显存范围)
         uint32_t gpu_data;
         if (gpu_read(raddr, &gpu_data)) {
-            *rdata = gpu_data;
-            return;
+            return gpu_data;
         }
 
         // 处理 RTC
         if (raddr == RTC_ADDR || raddr == RTC_ADDR + 4) {
             uint64_t us = get_time_internal();
-            *rdata = (raddr == RTC_ADDR) ? (uint32_t)us : (uint32_t)(us >> 32);
-            return;
+             return (raddr == RTC_ADDR) ? (uint32_t)us : (uint32_t)(us >> 32);
         }
 
-        // 处理键盘
-        if (raddr == 0xa0000000) { *rdata = 1; return; }
-        if (raddr == 0xa0000060) { *rdata = keyboard_read(); return; }
+    // 处理键盘
+        if (raddr == 0xa0000000) { return 1;}
+        if (raddr == 0xa0000060) { return keyboard_read(); }
 
-        *rdata = 0; // 其他设备地址默认返回0
-        return;
+        return  0; // 其他设备地址默认返回0
     }
 
     // --- 2. 内存区访问 (0x80000000 - 0x84000000) ---
@@ -95,15 +92,15 @@ extern "C" void pmem_read(int raddr, int *rdata, char rmask) {
         if (rmask & 0x02) data |= (p[1] << 8);
         if (rmask & 0x04) data |= (p[2] << 16);
         if (rmask & 0x08) data |= (p[3] << 24);
-        *rdata = data;
-        return;
+        return data;
+
     }
 
     // --- 3. 非法地址 ---
     #ifdef CONFIG_DIFFTEST
     difftest_skip_ref();
     #endif
-    *rdata = 0;
+    return 0;
 }
 
 extern "C" void pmem_write(int waddr, int wdata, char wmask) {
@@ -138,54 +135,6 @@ extern "C" void pmem_write(int waddr, int wdata, char wmask) {
         return;
     }
 }
-
-
-
-// 4. DPI-C 写内存 (供 Verilog 调用)
-// extern "C" void pmem_write(int waddr, int wdata, char wmask) {
-
-//   // /*------------------------GPU------------------*/
-
-//   if ((waddr >= FB_ADDR && waddr < FB_ADDR + (400 * 300 * 4)) || 
-//       (waddr == SYNC_ADDR)) {
-//     #ifdef CONFIG_DIFFTEST
-//     difftest_skip_ref();
-//     #endif
-    
-//     // 调用 gpu.cpp 里的逻辑
-//     if (gpu_write(waddr, wdata, wmask)) {
-//       return;
-//     }
-//   }
-
-
-//   /*----------------------------------------------*/
-//   if (waddr == SERIAL_PORT) {
-//     #ifdef CONFIG_DIFFTEST
-//       difftest_skip_ref();
-//     #endif
-//       fputc((char)wdata, stdout); 
-//       fflush(stdout);
-//       return;
-//   }
-
-//   if (waddr < MEM_BASE || waddr >= MEM_BASE + MEM_SIZE) {
-//     #ifdef CONFIG_DIFFTEST
-//       difftest_skip_ref();
-//     #endif
-//       return;
-//   }
-
-//   uint32_t index = waddr - MEM_BASE;
-//   uint8_t *p = (uint8_t *)(pmem + index);
-
-//   if (wmask & 0x01) { p[0] = (wdata)       & 0xFF; }
-//   if (wmask & 0x02) { p[1] = (wdata >> 8)  & 0xFF; }
-//   if (wmask & 0x04) { p[2] = (wdata >> 16) & 0xFF; }
-//   if (wmask & 0x08) { p[3] = (wdata >> 24) & 0xFF; }
-// }
-
-
 
 
 

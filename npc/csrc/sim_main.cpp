@@ -100,16 +100,21 @@ extern "C" void invalid_inst_trap(int pc, int inst) {
 // 在 global ptr 附近增加一个全局变量记录 context
 VerilatedContext* contextp = NULL;
 
-void single_step() {
-    if (top_ptr == NULL || contextp == NULL) return;
+bool single_step() {
+    if (top_ptr == NULL || contextp == NULL) return false;
 
     // 1. 下降沿 -> 上升沿 (触发硬件寄存器更新) // 假设你的寄存器堆数组叫 gpr，a5 对应 RISC-V 的 x15
-  
+ 
     update_keyboard_state();
+    // 上升沿前稳定组合逻辑，记录本次上升沿是否会提交指令。
+    top_ptr->clk = 0;
+    top_ptr->eval();
+    const bool will_commit = top_ptr->commit;
+
     top_ptr->clk = 1;
     top_ptr->eval();
     contextp->timeInc(1);
-    
+
     // Debug print
     //printf("PC=%08x INST=%08x\n", top_ptr->pc, top_ptr->inst);
 #ifdef CONFIG_WAVE
@@ -127,8 +132,8 @@ void single_step() {
 
 #ifdef CONFIG_ITRACE
     printf("pc = 0x%08x, inst = 0x%08x\n",top_ptr->pc, top_ptr->inst);
-    
 #endif
+    return will_commit;
 }
 
 

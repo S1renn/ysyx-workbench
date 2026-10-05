@@ -1,8 +1,8 @@
 /*
  *
  * Automatically generated file; DO NOT EDIT.
- * YSYX NPC Configuration System
+ * NPC Configuration
  *
  */
 #define CONFIG_WAVE 1
-#define CONFIG_WAVE 1
+#define CONFIG_BATCH 1

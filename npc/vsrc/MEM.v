@@ -1,35 +1,36 @@
 module MEM (
     input clk,
 
-    //inst_read
-    input  [31:0] inst_addr,
-    output [31:0] inst_data,
-
-
-
     //data_read
-    input  [31:0] raddr,
-    output [31:0] rdata,
-    input  [ 3:0] rmask,
+    input rst,
+    output reg rvalid,
+    output reg wvalid,
 
-    //write
+    input [31:0] raddr,
+    output reg [31:0] rdata,
+    input [3:0] rmask,
+    input [3:0] lsu_rmask,
+    input [3:0] lsu_wmask,
+
     input [31:0] waddr,
     input [31:0] wdata,
     input [ 3:0] wmask,
 
 
     input wen,
-    input ren
+    input ren,
+    //temp
+    input [2:0] func3,
+    input [6:0] opcode
 );
 
 
 
   /* ---------------- DPI-C 接口 ---------------- */
   // 读内存函数
-  import "DPI-C" function void pmem_read(
-    input  int  raddr,
-    output int  rdata,
-    input  byte rmask
+  import "DPI-C" function int pmem_read(
+    input int  raddr,
+    input byte rmask
   );
 
   // 写内存函数
@@ -39,42 +40,68 @@ module MEM (
     input byte wmask
   );
 
+  localparam IDLE  = 2'h0;
+  localparam READ  = 2'h1;
+  localparam WRITE = 2'h2;
+  localparam RESP  = 2'h3;
 
-
-
-  /* ---------------- inst_read ---------------- */
-  reg [31:0] inst_temp;
-  always @(*) begin
-
-    pmem_read(inst_addr, inst_temp, 8'b0000_1111);
-  end
-
-  assign inst_data = inst_temp;
-
-
+  reg [1:0] state;
+  reg is_store;
+  reg [31:0] req_raddr;
+  reg [3:0] req_rmask;
+  reg [31:0] req_waddr;
+  reg [3:0] req_wmask;
+  reg [31:0] req_wdata;
 
   /* ---------------- data_read ---------------- */
 
 
-  /* verilator lint_off UNOPTFLAT */
-  reg [31:0] rdata_temp;
-  /* verilator lint_on UNOPTFLAT */
-
-  always @(*) begin
-    if (ren) pmem_read(raddr, rdata_temp, {4'b0, rmask});
-
-    else rdata_temp = 32'b0;
-  end
-  assign rdata = rdata_temp;
-
-
-
-
-  /* ---------------- 写操作 (时序逻辑) ---------------- */
   always @(posedge clk) begin
-    if (wen) begin
-      // 只有 wen 有效时才调用 C++ 写函数
-      pmem_write(waddr, wdata, {4'b0, wmask});
+    if (rst) begin
+      wvalid <= 0;
+      req_waddr <= 0;
+      req_wdata <= 0;
+      rdata <= 32'b0;
+      rvalid <= 1'b0;
+      state <= IDLE;
+      req_raddr <= 0;
+      req_rmask <= 0;
+      req_wmask <= 0;
+      is_store <= 0;
+    end else begin
+      case (state)
+        IDLE: begin
+          rvalid <= 0;
+          wvalid <= 0;
+          if (ren) begin
+            req_raddr <= raddr;
+            req_rmask <= (opcode == 7'b0000011) ? lsu_rmask : rmask;
+            state <= READ;
+            is_store <= 0;
+          end else if (wen) begin
+            req_waddr <= waddr;
+            req_wdata <= wdata;
+            req_wmask <= (opcode == 7'b0100011) ? lsu_wmask : wmask;
+            state <= WRITE;
+            is_store <= 1;
+          end
+        end
+        READ: begin
+          rdata <= pmem_read(req_raddr, {4'b0, req_rmask});
+          state <= RESP;
+        end
+        WRITE: begin
+          pmem_write(req_waddr, req_wdata, {4'b0, req_wmask});
+          state <= RESP;
+        end
+        RESP: begin
+          state <= IDLE;
+          if (!is_store) rvalid <= 1;
+          else wvalid <= 1;
+        end
+
+        default: state <= IDLE;
+      endcase
     end
   end
 
