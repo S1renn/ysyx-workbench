@@ -22,10 +22,12 @@ module top (
   // end
 
 
+
+  wire is_load;
+  wire is_store;
   wire gpr_write_en = gpr_wen && commit;
-  wire is_load = inst[6:0] == 7'b0000011;
-  wire mem_read_en = mem_ren && exec_phase;
-  wire mem_write_en = mem_wen && exec_phase;
+  wire mem_read_en;
+  wire mem_write_en;
   wire [31:0] dnpc;
   wire [31:0] mem_wdata;
   wire [3:0] mem_wmask;
@@ -64,49 +66,48 @@ module top (
   end
 
   IFU inst_fetch (
-      .clk       (clk),
-      .rst       (rst),
-      .pc        (pc),
-      .ifu_rdata (inst),
-      .inst_valid(inst_valid),
-      .commit    (commit),
-      .is_load   (is_load),
-      .is_store  (is_store),
-      .exec_phase(exec_phase),
-      .mem_rvalid(mem_rvalid),
-      .mem_wvalid(mem_wvalid)
-
+      .clk         (clk),
+      .rst         (rst),
+      .pc          (pc),
+      .ifu_rdata   (inst),
+      .inst_valid  (inst_valid),
+      .commit      (commit),
+      .is_load     (is_load),
+      .is_store    (is_store),
+      .exec_phase  (exec_phase),
+      .ls_done     (ls_done),
+      .ls_req_valid(ls_req_valid)
   );
   //wire commit;
   wire exec_phase;
   wire mem_rvalid;
-
+  wire ls_req_valid;
+  wire ls_done;
+  wire mem_req_valid;
   LSU u_lsu (
       .clk(clk),
       .rst(rst),
 
-      .req_valid(),
-      .is_store(is_store),
-      .func3(func3),
-      .opcode(opcode),
-      .addr(addr),
+      .req_valid (ls_req_valid),  //cpu -> lsu
+      .is_store  (is_store),
+      .is_load   (is_load),
+      .func3     (func3),
+      .addr      (addr),
       .store_data(store_data),
 
-      .done(),
+      .done     (ls_done),   //lsu -> cpu
       .load_data(load_data),
 
-      .mem_req_valid(),
-      .mem_wen(),
-      .mem_addr(mem_addr),
-      .mem_wdata(mem_wdata),
-      .mem_wmask(lsu_mem_wmask),
-      .mem_rmask(lsu_mem_rmask),
+      .mem_req_valid(mem_req_valid),  //lsu -> mem
+      .mem_wen      (mem_write_en),   //lsu -> mem
+      .mem_ren      (mem_read_en),
+      .mem_addr     (mem_addr),
+      .mem_wdata    (mem_wdata),
+      .mem_wmask    (lsu_mem_wmask),
+      .mem_rmask    (lsu_mem_rmask),
 
-      .mem_resp_valid(),
-      .mem_rdata(mem_rdata)
-
-
-
+      .mem_resp_valid(mem_resp_valid),  //mem -> lsu
+      .mem_rdata     (mem_rdata)
   );
   wire [31:0] load_data;
   wire [31:0] mem_addr;
@@ -134,13 +135,13 @@ module top (
 
       .wen(mem_write_en),
       .ren(mem_read_en),
-      .rvalid(mem_rvalid),
-      .wvalid(mem_wvalid),
+      .mem_req_valid(mem_req_valid),
 
-      .func3 (func3),
-      .opcode(opcode)
+      .func3(func3),
+      .opcode(opcode),
+      .mem_resp_valid(mem_resp_valid)
   );
-
+  wire mem_resp_valid;
   IDU inst_decode (
       .clk(clk),
       .gpr_wen(gpr_wen),
@@ -155,8 +156,12 @@ module top (
       .rs2       (raddr2),
       .rd        (gpr_waddr),
       .opcode    (opcode),
-      .func3     (func3)
+      .func3     (func3),
       //.pc         (pc )
+      .is_store  (is_store),
+      .is_load   (is_load)
+
+
   );
 
   wire [4:0] gpr_waddr;
@@ -188,9 +193,10 @@ module top (
       .opcode    (opcode),
       .func3     (func3),
       .gpr_wdata (gpr_wdata),
-      .is_store  (is_store),
       .store_data(store_data),
 
+      .is_store(is_store),
+      .is_load (is_load),
 
       .mstatus_rdata(mstatus_rdata),
       .mtvec_rdata  (mtvec_rdata),
@@ -223,7 +229,6 @@ module top (
 
   );
   wire [31:0] addr;
-  wire is_store;
 
   wire [31:0] mtvec_wdata;
   wire [31:0] mstatus_wdata;

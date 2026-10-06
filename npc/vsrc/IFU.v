@@ -9,13 +9,12 @@ module IFU (
     input  is_store,
     output commit,
     output exec_phase,
-    input  mem_rvalid,
-    input  mem_wvalid
+    input  ls_done,
+    output ls_req_valid
 );
   localparam FETCH = 2'h0;
-  localparam EXEC = 2'h1;
-  localparam LOAD_WB = 2'h2;
-  localparam STORE_WB = 2'h3;
+  localparam EXEC  = 2'h1;
+  localparam LS_WB = 2'h2;
 
   reg [1:0] state;
 
@@ -23,9 +22,10 @@ module IFU (
     input int  raddr,
     input byte rmask
   );
-  assign inst_valid = !rst && (((state == EXEC) || (state == LOAD_WB)) || (state == STORE_WB));
-  assign commit = !rst && (((state == STORE_WB) && mem_wvalid || (state == LOAD_WB) && mem_rvalid || (state == EXEC) && !is_load && !is_store));
+  assign inst_valid = !rst && (((state == EXEC) || (state == LS_WB)));
+  assign commit = !rst && (((state == LS_WB) && ls_done || (state == EXEC) && !is_load && !is_store));
   assign exec_phase = !rst && (state == EXEC);
+  assign ls_req_valid = exec_phase && (is_load || is_store);
 
   always @(posedge clk) begin
     if (rst) begin
@@ -38,13 +38,11 @@ module IFU (
           state <= EXEC;
         end
         EXEC: begin
-          if (is_load) state <= LOAD_WB;
-          else if (is_store) state <= STORE_WB;
+          if (is_load || is_store) state <= LS_WB;
           else state <= FETCH;
         end
-        LOAD_WB:  if (mem_rvalid) state <= FETCH;
-        STORE_WB: if (mem_wvalid) state <= FETCH;
-        default:  state <= FETCH;
+        LS_WB:   if (ls_done) state <= FETCH;
+        default: state <= FETCH;
       endcase
     end
   end

@@ -12,6 +12,8 @@ module EXU (
     input [4:0] rd,
 
 
+    input is_store,
+    input is_load,
 
     input [31:0] mstatus_rdata,
     input [31:0] mtvec_rdata,
@@ -45,9 +47,8 @@ module EXU (
     input  reg [31:0] mem_rdata,
     output reg [ 3:0] mem_rmask,
     output reg [ 3:0] mem_wmask,
-    output reg [31:0] store_data,
+    output reg [31:0] store_data
 
-    output reg is_store
 );
 
   import "DPI-C" function void ebreak();
@@ -89,7 +90,6 @@ module EXU (
     mem_wmask = 4'b0000;
     mem_rmask = 4'b0000;
     addr = 32'b0;
-    is_store = 0;
     store_data = 32'b0;
 
     mstatus_wdata = 0;
@@ -373,16 +373,13 @@ module EXU (
 
       //sw
       if (opcode == 7'b0100011) begin
-        is_store = 1;
         addr = rs1 + imm;
         store_data = rs2;
       end
     end
 
-
     /*--------------------load_kind-------------------*/
     if (opcode == 7'b0000011) begin
-      is_store = 0;
       addr = rs1 + imm;
     end
   end

@@ -13,7 +13,11 @@ module IDU (
     output reg [ 4:0] rs2,
     output reg [ 4:0] rd,
     output reg [ 6:0] opcode,
-    output reg [ 2:0] func3
+    output reg [ 2:0] func3,
+
+    output reg is_store,
+    output reg is_load
+
 
 );
 
@@ -45,6 +49,8 @@ module IDU (
     rs1 = 5'b0;
     rs2 = 5'b0;
     rd = 5'b0;
+    is_store = 0;
+    is_load = 0;
 
     if (inst_valid) begin
       // Decoding based on Opcode (7-bit)
@@ -86,6 +92,7 @@ module IDU (
           mem_ren   = 1'b1;
           inst_type = I_TYPE;
           gpr_ren   = 1'b1;  // reads rs1
+          is_load   = 1;
         end
         // OP-IMM (0010011): addi, slti, sltiu, xori, ori, andi, slli, srli, srai
         7'b0010011: begin
@@ -118,6 +125,7 @@ module IDU (
           mem_wen   = 1'b1;
           inst_type = S_TYPE;
           gpr_ren   = 1'b1;
+          is_store  = 1;
         end
 
         // --- B-TYPE ---

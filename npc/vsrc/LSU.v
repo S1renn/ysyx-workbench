@@ -4,16 +4,17 @@ module LSU (
 
     input req_valid,
     input is_store,
+    input is_load,
     input [2:0] func3,
-    input [6:0] opcode,
     input [31:0] addr,
     input [31:0] store_data,
 
-    output done,
+    output reg done,
     output reg [31:0] load_data,
 
     output mem_req_valid,
     output mem_wen,
+    output mem_ren,
     output reg [31:0] mem_addr,
     output reg [31:0] mem_wdata,
     output reg [3:0] mem_wmask,
@@ -22,13 +23,17 @@ module LSU (
     input mem_resp_valid,
     input [31:0] mem_rdata
 );
-  assign mem_addr = (opcode == 7'b0000011 || opcode == 7'b0100011) ? {addr[31:2], 2'b00} : 32'b0;
+  assign mem_addr = (is_store || is_load) ? {addr[31:2], 2'b00} : 32'b0;
+  assign mem_req_valid = (is_store || is_load) && req_valid ? 1 : 0;
+  assign done = mem_resp_valid;
+  assign mem_wen = is_store && req_valid ? 1 : 0;
+  assign mem_ren = is_load && req_valid ? 1 : 0;
+
   /*-----------------------store---------------------*/
   always @(*) begin
-
     mem_wdata = 32'b0;
     mem_wmask = 4'b0;
-    if (is_store && opcode == 7'b0100011) begin
+    if (is_store) begin
       if (func3 == 3'b010) begin
         mem_wdata = store_data;
         mem_wmask = 4'b1111;
@@ -75,7 +80,7 @@ module LSU (
   always @(*) begin
     load_data = 32'b0;
     mem_rmask = 4'b0;
-    if (!is_store && opcode == 7'b0000011) begin
+    if (!is_store) begin
       if (func3 == 3'b010) begin
         load_data = mem_rdata;
         mem_rmask = 4'b1111;
@@ -153,8 +158,5 @@ module LSU (
         endcase
       end
     end
-
-
-
   end
 endmodule

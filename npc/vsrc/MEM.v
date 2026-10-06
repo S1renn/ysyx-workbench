@@ -3,8 +3,6 @@ module MEM (
 
     //data_read
     input rst,
-    output reg rvalid,
-    output reg wvalid,
 
     input [31:0] raddr,
     output reg [31:0] rdata,
@@ -19,9 +17,12 @@ module MEM (
 
     input wen,
     input ren,
+    input mem_req_valid,
     //temp
     input [2:0] func3,
-    input [6:0] opcode
+    input [6:0] opcode,
+
+    output mem_resp_valid
 );
 
 
@@ -58,27 +59,25 @@ module MEM (
 
   always @(posedge clk) begin
     if (rst) begin
-      wvalid <= 0;
       req_waddr <= 0;
       req_wdata <= 0;
       rdata <= 32'b0;
-      rvalid <= 1'b0;
       state <= IDLE;
       req_raddr <= 0;
       req_rmask <= 0;
       req_wmask <= 0;
       is_store <= 0;
+      mem_resp_valid <= 0;
     end else begin
       case (state)
         IDLE: begin
-          rvalid <= 0;
-          wvalid <= 0;
-          if (ren) begin
+          mem_resp_valid <= 0;
+          if (ren && mem_req_valid) begin
             req_raddr <= raddr;
             req_rmask <= (opcode == 7'b0000011) ? lsu_rmask : rmask;
             state <= READ;
             is_store <= 0;
-          end else if (wen) begin
+          end else if (wen && mem_req_valid) begin
             req_waddr <= waddr;
             req_wdata <= wdata;
             req_wmask <= (opcode == 7'b0100011) ? lsu_wmask : wmask;
@@ -96,8 +95,7 @@ module MEM (
         end
         RESP: begin
           state <= IDLE;
-          if (!is_store) rvalid <= 1;
-          else wvalid <= 1;
+          mem_resp_valid <= 1;
         end
 
         default: state <= IDLE;
