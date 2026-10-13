@@ -24,7 +24,9 @@ module MEM (
     input [2:0] func3,
     input [6:0] opcode,
 
-    output mem_resp_valid
+    output mem_resp_valid,
+    output mem_req_ready,
+    output mem_handshake
 );
 
 
@@ -55,6 +57,10 @@ module MEM (
   reg [ 3:0] req_wmask;
   reg [31:0] req_wdata;
   reg [ 3:0] wait_count;
+
+
+  assign mem_handshake = mem_req_ready && mem_req_valid;
+  assign mem_req_ready = (state == IDLE) && !rst;
   /* ---------------- data_read ---------------- */
 
 
@@ -73,11 +79,11 @@ module MEM (
       case (state)
         IDLE: begin
           mem_resp_valid <= 0;
-          if (ren && mem_req_valid) begin
+          if (ren && mem_handshake) begin
             req_raddr <= raddr;
             req_rmask <= is_load ? lsu_rmask : rmask;
             state <= READ;
-          end else if (wen && mem_req_valid) begin
+          end else if (wen && mem_handshake) begin
             req_waddr <= waddr;
             req_wdata <= wdata;
             req_wmask <= is_store ? lsu_wmask : wmask;

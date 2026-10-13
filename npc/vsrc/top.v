@@ -66,17 +66,18 @@ module top (
   end
 
   IFU inst_fetch (
-      .clk         (clk),
-      .rst         (rst),
-      .pc          (pc),
-      .ifu_rdata   (inst),
-      .inst_valid  (inst_valid),
-      .commit      (commit),
-      .is_load     (is_load),
-      .is_store    (is_store),
-      .exec_phase  (exec_phase),
-      .ls_done     (ls_done),
-      .ls_req_valid(ls_req_valid)
+      .clk          (clk),
+      .rst          (rst),
+      .pc           (pc),
+      .ifu_rdata    (inst),
+      .inst_valid   (inst_valid),
+      .commit       (commit),
+      .is_load      (is_load),
+      .is_store     (is_store),
+      .exec_phase   (exec_phase),
+      .ls_done      (ls_done),
+      .ls_req_valid (ls_req_valid),
+      .mem_handshake(mem_handshake)
   );
   //wire commit;
   wire exec_phase;
@@ -84,6 +85,7 @@ module top (
   wire ls_req_valid;
   wire ls_done;
   wire mem_req_valid;
+  wire mem_handshake;
   LSU u_lsu (
       .clk(clk),
       .rst(rst),
@@ -107,6 +109,7 @@ module top (
       .mem_rmask    (lsu_mem_rmask),
 
       .mem_resp_valid(mem_resp_valid),  //mem -> lsu
+      //.mem_req_ready (mem_req_ready),
       .mem_rdata     (mem_rdata)
   );
   wire [31:0] load_data;
@@ -141,9 +144,13 @@ module top (
 
       .func3(func3),
       .opcode(opcode),
-      .mem_resp_valid(mem_resp_valid)
+      .mem_req_ready(mem_req_ready),
+      .mem_resp_valid(mem_resp_valid),
+      .mem_handshake(mem_handshake)
   );
   wire mem_resp_valid;
+  wire mem_req_ready;
+
   IDU inst_decode (
       .clk(clk),
       .gpr_wen(gpr_wen),

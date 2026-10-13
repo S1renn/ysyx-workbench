@@ -10,7 +10,8 @@ module IFU (
     output commit,
     output exec_phase,
     input  ls_done,
-    output ls_req_valid
+    output ls_req_valid,
+    input  mem_handshake
 );
   localparam FETCH = 2'h0;
   localparam EXEC  = 2'h1;
@@ -38,10 +39,14 @@ module IFU (
           state <= EXEC;
         end
         EXEC: begin
-          if (is_load || is_store) state <= LS_WB;
+          if (mem_handshake && (is_store || is_load)) begin
+            state <= LS_WB;
+          end else if (!mem_handshake && (is_store || is_load)) state <= EXEC;
           else state <= FETCH;
         end
-        LS_WB:   if (ls_done) state <= FETCH;
+        LS_WB: begin
+          if (ls_done) state <= FETCH;
+        end
         default: state <= FETCH;
       endcase
     end

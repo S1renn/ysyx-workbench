@@ -21,6 +21,7 @@ module LSU (
     output reg [3:0] mem_rmask,
 
     input mem_resp_valid,
+    //input mem_req_ready,
     input [31:0] mem_rdata
 );
   assign mem_addr = (is_store || is_load) ? {addr[31:2], 2'b00} : 32'b0;
