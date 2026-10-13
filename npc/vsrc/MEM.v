@@ -15,6 +15,8 @@ module MEM (
     input [ 3:0] wmask,
 
 
+    input is_store,
+    input is_load,
     input wen,
     input ren,
     input mem_req_valid,
@@ -46,14 +48,13 @@ module MEM (
   localparam WRITE = 2'h2;
   localparam RESP  = 2'h3;
 
-  reg [1:0] state;
-  reg is_store;
+  reg [ 1:0] state;
   reg [31:0] req_raddr;
-  reg [3:0] req_rmask;
+  reg [ 3:0] req_rmask;
   reg [31:0] req_waddr;
-  reg [3:0] req_wmask;
+  reg [ 3:0] req_wmask;
   reg [31:0] req_wdata;
-
+  reg [ 3:0] wait_count;
   /* ---------------- data_read ---------------- */
 
 
@@ -66,34 +67,41 @@ module MEM (
       req_raddr <= 0;
       req_rmask <= 0;
       req_wmask <= 0;
-      is_store <= 0;
       mem_resp_valid <= 0;
+      wait_count <= 4'h0;
     end else begin
       case (state)
         IDLE: begin
           mem_resp_valid <= 0;
           if (ren && mem_req_valid) begin
             req_raddr <= raddr;
-            req_rmask <= (opcode == 7'b0000011) ? lsu_rmask : rmask;
+            req_rmask <= is_load ? lsu_rmask : rmask;
             state <= READ;
-            is_store <= 0;
           end else if (wen && mem_req_valid) begin
             req_waddr <= waddr;
             req_wdata <= wdata;
-            req_wmask <= (opcode == 7'b0100011) ? lsu_wmask : wmask;
+            req_wmask <= is_store ? lsu_wmask : wmask;
             state <= WRITE;
-            is_store <= 1;
           end
         end
         READ: begin
-          rdata <= pmem_read(req_raddr, {4'b0, req_rmask});
-          state <= RESP;
+          if (wait_count < 15) begin
+            wait_count <= wait_count + 1;
+          end else begin
+            rdata <= pmem_read(req_raddr, {4'b0, req_rmask});
+            state <= RESP;
+          end
         end
         WRITE: begin
-          pmem_write(req_waddr, req_wdata, {4'b0, req_wmask});
-          state <= RESP;
+          if (wait_count < 15) begin
+            wait_count <= wait_count + 1;
+          end else begin
+            pmem_write(req_waddr, req_wdata, {4'b0, req_wmask});
+            state <= RESP;
+          end
         end
         RESP: begin
+          wait_count <= 0;
           state <= IDLE;
           mem_resp_valid <= 1;
         end

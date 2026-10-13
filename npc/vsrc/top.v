@@ -120,6 +120,8 @@ module top (
       .clk(clk),
       .rst(rst),
 
+      .is_store(is_store),
+      .is_load(is_load),
       //data_read
       .rdata(mem_rdata),
       .raddr(mem_addr),
