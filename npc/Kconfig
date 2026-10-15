@@ -1,0 +1,36 @@
+mainmenu "NPC Configuration"
+
+config WAVE
+    bool "Enable waveform tracing"
+    default y
+    help
+      Record simulation waveforms in npc_dump.vcd for debugging.
+      Disable this option to reduce disk usage and simulation overhead.
+
+config ITRACE
+    bool "Enable instruction tracing"
+    default n
+    help
+      Print the program counter and instruction after each simulation step.
+
+config FTRACE
+    bool "Enable function tracing"
+    default n
+    help
+      Trace function calls and returns using symbols from the ELF file.
+      Supply the matching ELF file with the ELF make variable.
+
+config DIFFTEST
+    bool "Enable differential testing"
+    default n
+    help
+      Compare execution against the NEMU reference shared library.
+      Build the reference library before enabling this option.
+
+config BATCH
+    bool "Enable batch mode"
+    default n
+    help
+      Run the program automatically without waiting for
+      debugger commands.
+
