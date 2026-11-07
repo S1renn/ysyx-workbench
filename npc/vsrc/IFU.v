@@ -11,7 +11,19 @@ module IFU (
     output exec_phase,
     input  ls_done,
     output ls_req_valid,
-    input  mem_handshake
+    input  mem_handshake,
+
+    // AXI4-Lite Read Address Channel
+    output wire [31:0] m_axi_araddr,
+    // output wire [ 2:0] ifu_axi_arprot,
+    output wire        m_axi_arvalid,
+    input  wire        m_axi_arready,
+
+    // AXI4-Lite Read Data Channel
+    input  wire [31:0] m_axi_rdata,
+    input  wire [ 1:0] m_axi_rresp,
+    input  wire        m_axi_rvalid,
+    output wire        m_axi_rready
 );
   localparam FETCH = 2'h0;
   localparam EXEC  = 2'h1;

@@ -13,17 +13,6 @@ module top (
 );
 
 
-
-  // always @(posedge clk) begin
-  //     if (inst == 32'h00002503) begin // 这是 lw a0, 0(a0) 的指令码，你可以根据实际指令
-  //         $display("[Time:%t] PC:%x | GPR_WEN:1 | WADDR:%d | WDATA_FROM_EXU:%x | REAL_MEM_DATA:%x",
-  //                  $time, pc, gpr_waddr, gpr_wdata, mem_rdata);
-  //     end
-  // end
-
-
-
-  wire is_load;
   wire is_store;
   wire gpr_write_en = gpr_wen && commit;
   wire mem_read_en;
@@ -51,11 +40,6 @@ module top (
   wire [2:0] func3;
   wire inst_valid;
 
-
-  //always @(*) begin
-  //wb_data = gpr_wdata;
-  //end
-
   //pc
   always @(posedge clk) begin
     if (rst) begin
@@ -77,7 +61,15 @@ module top (
       .exec_phase   (exec_phase),
       .ls_done      (ls_done),
       .ls_req_valid (ls_req_valid),
-      .mem_handshake(mem_handshake)
+      .mem_handshake(mem_handshake),
+
+      .m_axi_araddr (ifu_axi_araddr),
+      .m_axi_arvalid(ifu_axi_arvalid),
+      .m_axi_arready(ifu_axi_arready),
+      .m_axi_rdata  (ifu_axi_rdata),
+      .m_axi_rresp  (ifu_axi_rresp),
+      .m_axi_rvalid (ifu_axi_rvalid),
+      .m_axi_rready (ifu_axi_rready)
   );
   //wire commit;
   wire exec_phase;
@@ -119,33 +111,82 @@ module top (
   wire [31:0] store_data;
   wire mem_wvalid;
 
+  Arbiter u_Arbiter (
+      .i_s_ifu_axi_araddr (i_s_ifu_axi_araddr),
+      .i_s_ifu_axi_arvalid(i_s_ifu_axi_arvalid),
+      .o_s_ifu_axi_arready(o_s_ifu_axi_arready),
+      .o_s_ifu_axi_rdata  (o_s_ifu_axi_rdata),
+      .o_s_ifu_axi_rresp  (o_s_ifu_axi_rresp),
+      .o_s_ifu_axi_rvalid (o_s_ifu_axi_rvalid),
+      .i_s_ifu_axi_rready (i_s_ifu_axi_rready),
+      .i_s_lsu_axi_araddr (i_s_lsu_axi_araddr),
+      .i_s_lsu_axi_arvalid(i_s_lsu_axi_arvalid),
+      .o_s_lsu_axi_arready(o_s_lsu_axi_arready),
+      .o_s_lsu_axi_rdata  (o_s_lsu_axi_rdata),
+      .o_s_lsu_axi_rresp  (o_s_lsu_axi_rresp),
+      .o_s_lsu_axi_rvalid (o_s_lsu_axi_rvalid),
+      .i_s_lsu_axi_rready (i_s_lsu_axi_rready),
+      .o_m_mem_axi_araddr (o_m_mem_axi_araddr),
+      .o_m_mem_axi_arvalid(o_m_mem_axi_arvalid),
+      .i_m_mem_axi_arready(i_m_mem_axi_arready),
+      .i_m_mem_axi_rdata  (i_m_mem_axi_rdata),
+      .i_m_mem_axi_rresp  (i_m_mem_axi_rresp),
+      .i_m_mem_axi_rvalid (i_m_mem_axi_rvalid),
+      .o_m_mem_axi_rready (o_m_mem_axi_rready),
+      .i_s_ifu_axi_awaddr (i_s_ifu_axi_awaddr),
+      .i_s_ifu_axi_awvalid(i_s_ifu_axi_awvalid),
+      .o_s_ifu_axi_awready(o_s_ifu_axi_awready),
+      .i_s_ifu_axi_wdata  (i_s_ifu_axi_wdata),
+      .i_s_ifu_axi_wstrb  (i_s_ifu_axi_wstrb),
+      .i_s_ifu_axi_wvalid (i_s_ifu_axi_wvalid),
+      .o_s_ifu_axi_wready (o_s_ifu_axi_wready),
+      .o_s_ifu_axi_bresp  (o_s_ifu_axi_bresp),
+      .o_s_ifu_axi_bvalid (o_s_ifu_axi_bvalid),
+      .i_s_ifu_axi_bready (i_s_ifu_axi_bready),
+      .i_s_lsu_axi_awaddr (i_s_lsu_axi_awaddr),
+      .i_s_lsu_axi_awvalid(i_s_lsu_axi_awvalid),
+      .o_s_lsu_axi_awready(o_s_lsu_axi_awready),
+      .i_s_lsu_axi_wdata  (i_s_lsu_axi_wdata),
+      .i_s_lsu_axi_wstrb  (i_s_lsu_axi_wstrb),
+      .i_s_lsu_axi_wvalid (i_s_lsu_axi_wvalid),
+      .o_s_lsu_axi_wready (o_s_lsu_axi_wready),
+      .o_s_lsu_axi_bresp  (o_s_lsu_axi_bresp),
+      .o_s_lsu_axi_bvalid (o_s_lsu_axi_bvalid),
+      .i_s_lsu_axi_bready (i_s_lsu_axi_bready),
+      .o_m_mem_axi_awaddr (o_m_mem_axi_awaddr),
+      .o_m_mem_axi_awvalid(o_m_mem_axi_awvalid),
+      .i_m_mem_axi_awready(i_m_mem_axi_awready),
+      .o_m_mem_axi_wdata  (o_m_mem_axi_wdata),
+      .o_m_mem_axi_wstrb  (o_m_mem_axi_wstrb),
+      .o_m_mem_axi_wvalid (o_m_mem_axi_wvalid),
+      .i_m_mem_axi_wready (i_m_mem_axi_wready),
+      .i_m_mem_axi_bresp  (i_m_mem_axi_bresp),
+      .i_m_mem_axi_bvalid (i_m_mem_axi_bvalid),
+      .o_m_mem_axi_bready (o_m_mem_axi_bready),
+      .owner              (owner)
+  );
+
+
   MEM ram (
       .clk(clk),
       .rst(rst),
-
-      .is_store(is_store),
-      .is_load(is_load),
-      //data_read
-      .rdata(mem_rdata),
       .raddr(mem_addr),
+      .rdata(mem_rdata),
       .rmask(mem_rmask),
       .lsu_rmask(lsu_mem_rmask),
       .lsu_wmask(lsu_mem_wmask),
-
-      //data_write
       .waddr(mem_addr),
       .wdata(mem_wdata),
       .wmask(mem_wmask),
-
-
+      .is_store(is_store),
+      .is_load(is_load),
       .wen(mem_write_en),
       .ren(mem_read_en),
       .mem_req_valid(mem_req_valid),
-
       .func3(func3),
       .opcode(opcode),
-      .mem_req_ready(mem_req_ready),
       .mem_resp_valid(mem_resp_valid),
+      .mem_req_ready(mem_req_ready),
       .mem_handshake(mem_handshake)
   );
   wire mem_resp_valid;
@@ -237,11 +278,16 @@ module top (
 
 
   );
-  wire [31:0] addr;
+  wire  [31:0] addr;
 
-  wire [31:0] mtvec_wdata;
-  wire [31:0] mstatus_wdata;
-  wire [31:0] mcause_wdata;
+  wire  [31:0] mtvec_wdata;
+  wire  [31:0] mstatus_wdata;
+  wire  [31:0] mcause_wdata;
+  logic [31:0] ifu_axi_araddr;
+  logic        ifu_axi_arvalid;
+  logic        ifu_axi_rready;
+  logic        is_load;
+
   //wire [31:0] mepc_wdata;
   //wire [31:0] final_gpr_wdata = (inst[6:0] == 7'b0000011) ? mem_rdata : gpr_wdata;
 
