@@ -47,7 +47,8 @@ module IFU (
     end else begin
       case (state)
         FETCH: begin
-          ifu_rdata <= pmem_read(pc, 8'h0f);
+          //ifu_rdata <= pmem_read(pc, 8'h0f);
+          ifu_rdata <= m_axi_rdata;
           state <= EXEC;
         end
         EXEC: begin

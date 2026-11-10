@@ -112,13 +112,15 @@ module top (
   wire mem_wvalid;
 
   Arbiter u_Arbiter (
-      .i_s_ifu_axi_araddr (i_s_ifu_axi_araddr),
-      .i_s_ifu_axi_arvalid(i_s_ifu_axi_arvalid),
-      .o_s_ifu_axi_arready(o_s_ifu_axi_arready),
-      .o_s_ifu_axi_rdata  (o_s_ifu_axi_rdata),
-      .o_s_ifu_axi_rresp  (o_s_ifu_axi_rresp),
-      .o_s_ifu_axi_rvalid (o_s_ifu_axi_rvalid),
-      .i_s_ifu_axi_rready (i_s_ifu_axi_rready),
+      //
+      .i_s_ifu_axi_araddr (ifu_axi_araddr),
+      .i_s_ifu_axi_arvalid(ifu_axi_arvalid),
+      .o_s_ifu_axi_arready(ifu_axi_arready),
+      .o_s_ifu_axi_rdata  (ifu_axi_rdata),
+      .o_s_ifu_axi_rresp  (ifu_axi_rresp),
+      .o_s_ifu_axi_rvalid (ifu_axi_rvalid),
+      .i_s_ifu_axi_rready (ifu_axi_rready),
+
       .i_s_lsu_axi_araddr (i_s_lsu_axi_araddr),
       .i_s_lsu_axi_arvalid(i_s_lsu_axi_arvalid),
       .o_s_lsu_axi_arready(o_s_lsu_axi_arready),
@@ -126,6 +128,7 @@ module top (
       .o_s_lsu_axi_rresp  (o_s_lsu_axi_rresp),
       .o_s_lsu_axi_rvalid (o_s_lsu_axi_rvalid),
       .i_s_lsu_axi_rready (i_s_lsu_axi_rready),
+
       .o_m_mem_axi_araddr (o_m_mem_axi_araddr),
       .o_m_mem_axi_arvalid(o_m_mem_axi_arvalid),
       .i_m_mem_axi_arready(i_m_mem_axi_arready),
@@ -133,6 +136,7 @@ module top (
       .i_m_mem_axi_rresp  (i_m_mem_axi_rresp),
       .i_m_mem_axi_rvalid (i_m_mem_axi_rvalid),
       .o_m_mem_axi_rready (o_m_mem_axi_rready),
+
       .i_s_ifu_axi_awaddr (i_s_ifu_axi_awaddr),
       .i_s_ifu_axi_awvalid(i_s_ifu_axi_awvalid),
       .o_s_ifu_axi_awready(o_s_ifu_axi_awready),
@@ -143,6 +147,7 @@ module top (
       .o_s_ifu_axi_bresp  (o_s_ifu_axi_bresp),
       .o_s_ifu_axi_bvalid (o_s_ifu_axi_bvalid),
       .i_s_ifu_axi_bready (i_s_ifu_axi_bready),
+
       .i_s_lsu_axi_awaddr (i_s_lsu_axi_awaddr),
       .i_s_lsu_axi_awvalid(i_s_lsu_axi_awvalid),
       .o_s_lsu_axi_awready(o_s_lsu_axi_awready),
@@ -153,6 +158,7 @@ module top (
       .o_s_lsu_axi_bresp  (o_s_lsu_axi_bresp),
       .o_s_lsu_axi_bvalid (o_s_lsu_axi_bvalid),
       .i_s_lsu_axi_bready (i_s_lsu_axi_bready),
+      //to mem
       .o_m_mem_axi_awaddr (o_m_mem_axi_awaddr),
       .o_m_mem_axi_awvalid(o_m_mem_axi_awvalid),
       .i_m_mem_axi_awready(i_m_mem_axi_awready),

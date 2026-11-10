@@ -1,32 +1,30 @@
 module MEM (
-    input clk,
 
-    //data_read
+    input clk,
     input rst,
 
-    input [31:0] raddr,
-    output reg [31:0] rdata,
-    input [3:0] rmask,
-    input [3:0] lsu_rmask,
-    input [3:0] lsu_wmask,
-
-    input [31:0] waddr,
-    input [31:0] wdata,
-    input [ 3:0] wmask,
-
-
-    input is_store,
-    input is_load,
-    input wen,
-    input ren,
-    input mem_req_valid,
-    //temp
-    input [2:0] func3,
-    input [6:0] opcode,
-
-    output mem_resp_valid,
-    output mem_req_ready,
-    output mem_handshake
+    //AR
+    input  [31:0] i_s_mem_axi_araddr,
+    input         i_s_mem_axi_arvalid,
+    output        o_s_mem_axi_arready,
+    //R
+    output [31:0] o_s_mem_axi_rdata,
+    output        o_s_mem_axi_rvalid,
+    input         i_s_mem_axi_rready,
+    output [ 1:0] o_s_mem_axi_rresp,
+    //AW
+    input  [31:0] i_s_mem_axi_awaddr,
+    input         i_s_mem_axi_awvalid,
+    output        o_s_mem_axi_awready,
+    //W
+    input  [31:0] i_s_mem_axi_wdata,
+    input  [ 3:0] i_s_mem_axi_wstrb,
+    input         i_s_mem_axi_wvalid,
+    output        o_s_mem_axi_wready,
+    //B
+    output [ 1:0] o_s_mem_axi_bresp,
+    output        o_s_mem_axi_bvalid,
+    input         i_s_mem_axi_bready
 );
 
 
@@ -45,73 +43,117 @@ module MEM (
     input byte wmask
   );
 
-  localparam IDLE  = 2'h0;
-  localparam READ  = 2'h1;
-  localparam WRITE = 2'h2;
-  localparam RESP  = 2'h3;
+  localparam IDLE          = 3'h0;
+  localparam READ_WAIT     = 3'h1;
+  localparam READ_RESP     = 3'h2;
+  localparam WRITE_WAIT    = 3'h3;
+  localparam WRITE_COLLECT = 3'h4;
+  localparam WRITE_RESP    = 3'h5;
 
-  reg [ 1:0] state;
+  reg [2:0] state;
   reg [31:0] req_raddr;
-  reg [ 3:0] req_rmask;
+  reg [3:0] req_rmask;
   reg [31:0] req_waddr;
-  reg [ 3:0] req_wmask;
+  reg [3:0] req_wstrb;
   reg [31:0] req_wdata;
-  reg [ 3:0] wait_count;
+  reg [3:0] wait_count;
+  reg got_aw;
+  reg got_w;
+  reg [31:0] read_data;
+
+  assign o_s_mem_axi_rdata = read_data;
+  assign o_s_mem_axi_arready = !rst && (state == IDLE);
+  assign o_s_mem_axi_rvalid = (state == READ_RESP);
+  assign o_s_mem_axi_awready = !rst && (state == IDLE || (state == WRITE_COLLECT && !got_aw));
+  assign o_s_mem_axi_wready = !rst && (state == IDLE || (state == WRITE_COLLECT && !got_w));
+  assign o_s_mem_axi_bvalid = !rst && (state == WRITE_RESP);
+
+  assign ar_fire = i_s_mem_axi_arvalid && o_s_mem_axi_arready;
+  assign r_fire = o_s_mem_axi_rvalid && i_s_mem_axi_rready;
+  assign aw_fire = i_s_mem_axi_awvalid && o_s_mem_axi_awready;
+  assign w_fire = o_s_mem_axi_wvalid && i_s_mem_axi_wready;
+  assign b_fire = o_s_mem_axi_bvalid && i_s_mem_axi_bready;
 
 
-  assign mem_handshake = mem_req_ready && mem_req_valid;
-  assign mem_req_ready = (state == IDLE) && !rst;
   /* ---------------- data_read ---------------- */
-
 
   always @(posedge clk) begin
     if (rst) begin
-      req_waddr <= 0;
-      req_wdata <= 0;
-      rdata <= 32'b0;
       state <= IDLE;
-      req_raddr <= 0;
-      req_rmask <= 0;
-      req_wmask <= 0;
-      mem_resp_valid <= 0;
-      wait_count <= 4'h0;
+      got_aw <= 0;
+      got_w <= 0;
+      wait_count <= 0;
+      req_raddr = 0;
+      req_waddr = 0;
+      req_wstrb = 0;
+      req_wdata = 0;
+
     end else begin
       case (state)
         IDLE: begin
-          mem_resp_valid <= 0;
-          if (ren && mem_handshake) begin
-            req_raddr <= raddr;
-            req_rmask <= is_load ? lsu_rmask : rmask;
-            state <= READ;
-          end else if (wen && mem_handshake) begin
-            req_waddr <= waddr;
-            req_wdata <= wdata;
-            req_wmask <= is_store ? lsu_wmask : wmask;
-            state <= WRITE;
+          if (ar_fire) begin
+            req_raddr <= i_s_mem_axi_araddr;
+            wait_count <= 0;
+            state <= READ_WAIT;
+          end else if (aw_fire || w_fire) begin
+            got_aw <= aw_fire;
+            got_w  <= w_fire;
+            if (aw_fire) begin
+              req_waddr <= i_s_mem_axi_awaddr;
+            end
+            if (w_fire) begin
+              req_wdata <= i_s_mem_axi_wdata;
+              req_wstrb <= i_s_mem_axi_wstrb;
+            end
+            wait_count <= 0;
+            if (aw_fire && w_fire) begin
+              state <= WRITE_WAIT;
+            end else state <= WRITE_COLLECT;
           end
         end
-        READ: begin
+        READ_WAIT: begin
           if (wait_count < 15) begin
             wait_count <= wait_count + 1;
           end else begin
-            rdata <= pmem_read(req_raddr, {4'b0, req_rmask});
-            state <= RESP;
+            read_data <= pmem_read(req_raddr, 8'h0f);
+            state <= READ_RESP;
           end
         end
-        WRITE: begin
+        WRITE_COLLECT: begin //数据锁存 在此状态下的数据只锁存了一个通道的 还要锁存另一个通道的
+          if (aw_fire) begin
+            got_aw <= 1;
+            req_waddr <= i_s_mem_axi_awaddr;
+          end
+          if (w_fire) begin
+            got_w <= 1;
+            req_wdate <= i_s_mem_axi_wdata;
+            req_wstrb <= i_s_mem_axi_wstrb;
+          end
+          if (got_aw && got_w) state <= WRITE_WAIT;
+        end
+        WRITE_WAIT: begin
           if (wait_count < 15) begin
             wait_count <= wait_count + 1;
           end else begin
-            pmem_write(req_waddr, req_wdata, {4'b0, req_wmask});
-            state <= RESP;
+            pmem_write(req_waddr, req_wdata, {4'b0, req_wstrb});
+            state <= WRITE_RESP;
           end
         end
-        RESP: begin
-          wait_count <= 0;
-          state <= IDLE;
-          mem_resp_valid <= 1;
+        READ_RESP: begin
+          if (r_fire) begin
+            state <= IDLE;
+            wait_count <= 0;
+          end
         end
-
+        WRITE_RESP: begin
+          if (b_fire) begin
+            got_aw <= 0;
+            got_w <= 0;
+            wait_count <= 0;
+            state <= IDLE;
+            o_s_mem_axi_bresp <= 1;
+          end
+        end
         default: state <= IDLE;
       endcase
     end

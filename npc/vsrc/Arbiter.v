@@ -7,7 +7,7 @@ module Arbiter (
     output        o_s_ifu_axi_arready,
     //R
     output [31:0] o_s_ifu_axi_rdata,
-    output        o_s_ifu_axi_rresp,
+    output [ 1:0] o_s_ifu_axi_rresp,
     output        o_s_ifu_axi_rvalid,
     input         i_s_ifu_axi_rready,
     //to lsu
@@ -17,7 +17,7 @@ module Arbiter (
     output        o_s_lsu_axi_arready,
     //R
     output [31:0] o_s_lsu_axi_rdata,
-    output        o_s_lsu_axi_rresp,
+    output [ 1:0] o_s_lsu_axi_rresp,
     output        o_s_lsu_axi_rvalid,
     input         i_s_lsu_axi_rready,
     //to mem
@@ -27,7 +27,7 @@ module Arbiter (
     input         i_m_mem_axi_arready,
     //R
     input  [31:0] i_m_mem_axi_rdata,
-    input         i_m_mem_axi_rresp,
+    input  [ 1:0] i_m_mem_axi_rresp,
     input         i_m_mem_axi_rvalid,
     output        o_m_mem_axi_rready,
     //WRITE
@@ -42,7 +42,7 @@ module Arbiter (
     input         i_s_ifu_axi_wvalid,
     output        o_s_ifu_axi_wready,
     //B
-    output        o_s_ifu_axi_bresp,
+    output [ 1:0] o_s_ifu_axi_bresp,
     output        o_s_ifu_axi_bvalid,
     input         i_s_ifu_axi_bready,
     //to lsu
@@ -56,7 +56,7 @@ module Arbiter (
     input         i_s_lsu_axi_wvalid,
     output        o_s_lsu_axi_wready,
     //B
-    output        o_s_lsu_axi_bresp,
+    output [ 1:0] o_s_lsu_axi_bresp,
     output        o_s_lsu_axi_bvalid,
     input         i_s_lsu_axi_bready,
 
@@ -71,7 +71,7 @@ module Arbiter (
     output        o_m_mem_axi_wvalid,
     input         i_m_mem_axi_wready,
     //B
-    input         i_m_mem_axi_bresp,
+    input  [ 1:0] i_m_mem_axi_bresp,
     input         i_m_mem_axi_bvalid,
     output        o_m_mem_axi_bready,
 
