@@ -1,6 +1,7 @@
 module EXU (
     input    clk,
     input    rst,
+    input    commit,
     input [31:0] pc,
     input [31:0] inst,
     input [31:0] imm,
@@ -72,11 +73,11 @@ module EXU (
 
     // Call 判定: JAL/JALR 且写入 ra (x1)
     // 第三个参数传 1'b0 (false)，表示“不是 Ret”
-    if (opcode == 7'h67 && rd == 5'd0 && inst[19:15] == 5'd1) begin
+    if (commit && opcode == 7'h67 && rd == 5'd0 && inst[19:15] == 5'd1) begin
       log_ftrace(pc, dnpc, 1'b1);
 
 
-    end else if ((opcode == 7'h6f || opcode == 7'h67) && rd == 5'd1) begin
+    end else if (commit && (opcode == 7'h6f || opcode == 7'h67) && rd == 5'd1) begin
       log_ftrace(pc, dnpc, 1'b0);
     end
 
@@ -93,7 +94,10 @@ module EXU (
     store_data = 32'b0;
 
     mstatus_wdata = 0;
+    mtvec_wdata = 0;
+    mepc_wdata = 0;
     mcause_wdata = 0;
+    tmp = 0;
 
     wen_mstatus = 0;
     wen_mtvec = 0;

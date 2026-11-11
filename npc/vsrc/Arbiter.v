@@ -77,11 +77,9 @@ module Arbiter (
 
 
 
-    //owner
+    // 0 = IFU, 1 = LSU。外部控制必须从请求开始保持到响应握手结束。
     input owner
 );
-  localparam IFU = 0;
-  localparam LSU = 1;
 
 
 

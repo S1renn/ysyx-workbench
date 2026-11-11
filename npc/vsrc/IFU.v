@@ -1,3 +1,5 @@
+`default_nettype none
+
 module IFU (
     input clk,
     input rst,
@@ -11,7 +13,7 @@ module IFU (
     output exec_phase,
     input  ls_done,
     output ls_req_valid,
-    input  mem_handshake,
+    input  mem_handshake,  // CPU 请求被 LSU 接收，不是 AXI 地址握手。
 
     // AXI4-Lite Read Address Channel
     output wire [31:0] m_axi_araddr,
@@ -25,44 +27,54 @@ module IFU (
     input  wire        m_axi_rvalid,
     output wire        m_axi_rready
 );
-  localparam FETCH = 2'h0;
-  localparam EXEC  = 2'h1;
-  localparam LS_WB = 2'h2;
+  localparam FETCH_ADDR = 2'd0;
+  localparam FETCH_DATA = 2'd1;
+  localparam EXEC       = 2'd2;
+  localparam LS_WB      = 2'd3;
 
   reg [1:0] state;
 
-  import "DPI-C" function int pmem_read(
-    input int  raddr,
-    input byte rmask
-  );
-  assign inst_valid = !rst && (((state == EXEC) || (state == LS_WB)));
-  assign commit = !rst && (((state == LS_WB) && ls_done || (state == EXEC) && !is_load && !is_store));
+  wire ar_fire = m_axi_arvalid && m_axi_arready;
+  wire r_fire = m_axi_rvalid && m_axi_rready;
+
+  // PC 只在 commit 时改变，因此地址等待期间保持稳定。
+  assign m_axi_araddr = pc;
+  assign m_axi_arvalid = !rst && (state == FETCH_ADDR);
+  assign m_axi_rready = !rst && (state == FETCH_DATA);
+  assign inst_valid = !rst && ((state == EXEC) || (state == LS_WB));
+  assign commit = !rst && (((state == LS_WB) && ls_done) ||
+                          ((state == EXEC) && !is_load && !is_store));
   assign exec_phase = !rst && (state == EXEC);
   assign ls_req_valid = exec_phase && (is_load || is_store);
 
   always @(posedge clk) begin
     if (rst) begin
       ifu_rdata <= 32'b0;
-      state <= FETCH;
+      state <= FETCH_ADDR;
     end else begin
       case (state)
-        FETCH: begin
-          //ifu_rdata <= pmem_read(pc, 8'h0f);
-          ifu_rdata <= m_axi_rdata;
-          state <= EXEC;
+        FETCH_ADDR: begin
+          if (ar_fire) state <= FETCH_DATA;
+        end
+        FETCH_DATA: begin
+          if (r_fire) begin
+            ifu_rdata <= m_axi_rdata;
+            state <= EXEC;
+          end
         end
         EXEC: begin
-          if (mem_handshake && (is_store || is_load)) begin
-            state <= LS_WB;
-          end else if (!mem_handshake && (is_store || is_load)) state <= EXEC;
-          else state <= FETCH;
+          if (is_store || is_load) begin
+            if (mem_handshake) state <= LS_WB;
+          end else state <= FETCH_ADDR;
         end
         LS_WB: begin
-          if (ls_done) state <= FETCH;
+          if (ls_done) state <= FETCH_ADDR;
         end
-        default: state <= FETCH;
+        default: state <= FETCH_ADDR;
       endcase
     end
   end
 endmodule
+
+`default_nettype wire
 

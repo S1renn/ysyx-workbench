@@ -1,3 +1,5 @@
+`default_nettype none
+
 module MEM (
 
     input clk,
@@ -52,7 +54,6 @@ module MEM (
 
   reg [2:0] state;
   reg [31:0] req_raddr;
-  reg [3:0] req_rmask;
   reg [31:0] req_waddr;
   reg [3:0] req_wstrb;
   reg [31:0] req_wdata;
@@ -60,18 +61,26 @@ module MEM (
   reg got_aw;
   reg got_w;
   reg [31:0] read_data;
+  wire ar_fire;
+  wire r_fire;
+  wire aw_fire;
+  wire w_fire;
+  wire b_fire;
 
   assign o_s_mem_axi_rdata = read_data;
   assign o_s_mem_axi_arready = !rst && (state == IDLE);
-  assign o_s_mem_axi_rvalid = (state == READ_RESP);
+  assign o_s_mem_axi_rvalid = !rst && (state == READ_RESP);
   assign o_s_mem_axi_awready = !rst && (state == IDLE || (state == WRITE_COLLECT && !got_aw));
   assign o_s_mem_axi_wready = !rst && (state == IDLE || (state == WRITE_COLLECT && !got_w));
   assign o_s_mem_axi_bvalid = !rst && (state == WRITE_RESP);
+  // 当前 DPI 内存接口没有错误返回，成功响应在 VALID 前就已准备好。
+  assign o_s_mem_axi_rresp = 2'b00;
+  assign o_s_mem_axi_bresp = 2'b00;
 
   assign ar_fire = i_s_mem_axi_arvalid && o_s_mem_axi_arready;
   assign r_fire = o_s_mem_axi_rvalid && i_s_mem_axi_rready;
   assign aw_fire = i_s_mem_axi_awvalid && o_s_mem_axi_awready;
-  assign w_fire = o_s_mem_axi_wvalid && i_s_mem_axi_wready;
+  assign w_fire = i_s_mem_axi_wvalid && o_s_mem_axi_wready;
   assign b_fire = o_s_mem_axi_bvalid && i_s_mem_axi_bready;
 
 
@@ -83,10 +92,11 @@ module MEM (
       got_aw <= 0;
       got_w <= 0;
       wait_count <= 0;
-      req_raddr = 0;
-      req_waddr = 0;
-      req_wstrb = 0;
-      req_wdata = 0;
+      req_raddr <= 0;
+      req_waddr <= 0;
+      req_wstrb <= 0;
+      req_wdata <= 0;
+      read_data <= 0;
 
     end else begin
       case (state)
@@ -126,10 +136,10 @@ module MEM (
           end
           if (w_fire) begin
             got_w <= 1;
-            req_wdate <= i_s_mem_axi_wdata;
+            req_wdata <= i_s_mem_axi_wdata;
             req_wstrb <= i_s_mem_axi_wstrb;
           end
-          if (got_aw && got_w) state <= WRITE_WAIT;
+          if ((got_aw || aw_fire) && (got_w || w_fire)) state <= WRITE_WAIT;
         end
         WRITE_WAIT: begin
           if (wait_count < 15) begin
@@ -151,7 +161,6 @@ module MEM (
             got_w <= 0;
             wait_count <= 0;
             state <= IDLE;
-            o_s_mem_axi_bresp <= 1;
           end
         end
         default: state <= IDLE;
@@ -160,3 +169,5 @@ module MEM (
   end
 
 endmodule
+
+`default_nettype wire

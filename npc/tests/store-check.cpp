@@ -80,10 +80,9 @@ int main(int argc, char **argv) {
 
     unsigned counts[3] = {};
     unsigned retired = 0;
-    for (unsigned cycle = 0; cycle < 1000 && !stopped; ++cycle) {
+    for (unsigned cycle = 0; cycle < 10000 && !stopped; ++cycle) {
       uint32_t pc = top.pc;
       uint32_t inst = word(expected, pc);
-      writes.clear();
       edge(1);
       bool store = false;
       Write wanted{};
@@ -117,6 +116,13 @@ int main(int argc, char **argv) {
         }
       }
 
+      // AXI writes take effect before B response/commit. Keep the transaction
+      // until retirement, then compare it with the architectural store.
+      if (top.pc == pc) {
+        edge(0);
+        continue;
+      }
+
       // Check the DPI transaction as well as actual memory, including untouched bytes.
       if (writes.size() != (store ? 1u : 0u)) {
         std::fprintf(stderr, "PC=0x%08x: expected %u writes, got %zu\n",
@@ -147,6 +153,7 @@ int main(int argc, char **argv) {
           throw std::runtime_error("register contents mismatch");
         }
       }
+      writes.clear();
       edge(0);
     }
     if (!stopped) throw std::runtime_error("timeout before ebreak");

@@ -57,7 +57,27 @@ $(STORE_CHECK): store-check.cpp $(STORE_RTL) $(NPC_ROOT)/csrc/mem.cpp $(NPC_ROOT
 store-test: store.bin $(STORE_CHECK)
 	$(STORE_CHECK) $(abspath store.bin)
 
+# IFU + LSU -> Arbiter -> MEM, using the real DPI RAM backend.
+AXI_BUILD := $(NPC_ROOT)/build/axi-check
+AXI_CHECK := $(AXI_BUILD)/axi-check
+IFU_CHECK := $(NPC_ROOT)/build/ifu-check/ifu-check
+
+$(AXI_CHECK): axi-check.cpp $(STORE_RTL) $(NPC_ROOT)/csrc/mem.cpp $(NPC_ROOT)/csrc/define.h $(NPC_ROOT)/include/generated/autoconf.h Makefile
+	verilator --cc --exe --build --trace -j 2 --top-module top \
+		--Mdir $(AXI_BUILD) -o $(AXI_CHECK) \
+		-LDFLAGS "-Wl,--wrap=pmem_read -Wl,--wrap=pmem_write" \
+		$(STORE_RTL) $(abspath axi-check.cpp) $(NPC_ROOT)/csrc/mem.cpp
+
+$(IFU_CHECK): ifu_axi_test.cpp $(NPC_ROOT)/vsrc/IFU.v Makefile
+	verilator --cc --exe --build -j 2 --top-module IFU \
+		--Mdir $(NPC_ROOT)/build/ifu-check -o $(IFU_CHECK) \
+		$(NPC_ROOT)/vsrc/IFU.v $(abspath ifu_axi_test.cpp)
+
+axi-test: axi.bin $(AXI_CHECK) $(IFU_CHECK)
+	$(IFU_CHECK)
+	$(AXI_CHECK) $(abspath axi.bin) $(AXI_BUILD)/axi.vcd
+
 clean:
 	rm -f *.o *.elf *.bin *.txt
 
-.PHONY: all clean disasm store-test
+.PHONY: all clean disasm store-test axi-test
